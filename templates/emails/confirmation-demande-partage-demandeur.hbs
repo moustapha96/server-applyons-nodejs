@@ -1,0 +1,16 @@
+{{> header}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:24px;font:400 14px/1.8 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#111827">
+      <h3 style="margin:0 0 12px 0">Votre demande est bien reçue</h3>
+      <p>Bonjour {{escapeHtml demandeurName}},</p>
+      <ul style="padding-left:18px;margin:0">
+        <li><strong>Institut :</strong> {{escapeHtml institutName}}</li>
+        <li><strong>Code :</strong> {{escapeHtml demandeCode}}</li>
+        <li><strong>Date :</strong> {{escapeHtml dateDemande}}</li>
+      </ul>
+      <p style="margin-top:12px">Nous vous informerons des mises à jour.</p>
+    </td>
+  </tr>
+</table>
+{{> footer}}

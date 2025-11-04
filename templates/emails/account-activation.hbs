@@ -1,0 +1,15 @@
+{{> header}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:24px;font:400 14px/1.8 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#111827">
+      <h3 style="margin:0 0 16px 0">Activez votre compte</h3>
+      <p>Bonjour {{escapeHtml name}},</p>
+      <p>Merci de votre inscription sur <strong>{{escapeHtml siteName}}</strong>.</p>
+      <p style="margin:20px 0">
+        <a href="{{activationUrl}}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none" target="_blank">Activer mon compte</a>
+      </p>
+      <p style="word-break:break-all">Si le bouton ne fonctionne pas :<br/><a href="{{activationUrl}}" target="_blank" style="color:#2563eb">{{activationUrl}}</a></p>
+    </td>
+  </tr>
+</table>
+{{> footer}}

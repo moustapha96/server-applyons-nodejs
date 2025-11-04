@@ -1,0 +1,51 @@
+{
+    "name": "applyons-backoffice",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "start": "node server.js",
+        "dev": "nodemon server.js",
+        "db:backup": "node scripts/backup-database.js",
+        "db:reset": "node scripts/reset-database.js",
+        "db:seed": "node prisma/seed.js",
+        "db:config": "node prisma/config.js",
+        "db:refresh": "npm run db:reset && npm run db:seed",
+        "postinstall": "npm run db:generate",
+        "lint": "eslint .",
+        "test": "vitest run --reporter=dot",
+        "ci": "npm ci && npm run lint && npm run test"
+    },
+    "dependencies": {
+        "@faker-js/faker": "^9.9.0",
+        "@paypal/checkout-server-sdk": "^1.0.3",
+        "@prisma/client": "^6.18.0",
+        "axios": "^1.12.2",
+        "bcryptjs": "latest",
+        "body-parser": "latest",
+        "cookie-parser": "latest",
+        "cors": "latest",
+        "csv-stringify": "^6.6.0",
+        "dotenv": "latest",
+        "express": "latest",
+        "express-rate-limit": "^8.0.1",
+        "express-validator": "latest",
+        "handlebars": "^4.7.8",
+        "helmet": "latest",
+        "jsonwebtoken": "latest",
+        "module-alias": "^2.2.3",
+        "multer": "latest",
+        "nodemailer": "^7.0.6",
+        "slugify": "^1.6.6",
+        "stripe": "^19.1.0",
+        "swagger-jsdoc": "^6.2.8",
+        "swagger-ui-express": "^5.0.1"
+    },
+    "devDependencies": {
+        "@types/node": "^22",
+        "md-to-pdf": "^5.2.4",
+        "nodemon": "^3.1.10",
+        "prisma": "^6.14.0",
+        "typescript": "^5",
+        "widdershins": "^4.0.1"
+    }
+}

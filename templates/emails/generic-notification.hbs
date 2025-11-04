@@ -1,0 +1,15 @@
+{{!-- templates/generic-notification.hbs --}}
+{{> header}}
+  <h2 style="margin:0 0 12px;">{{title}}</h2>
+  <p>{{message}}</p>
+
+  {{#if cta}}
+    <a class="btn" href="{{cta.url}}">{{cta.label}}</a>
+  {{/if}}
+
+  {{#if extra}}
+    <div class="box">
+      {{{extra}}}
+    </div>
+  {{/if}}
+{{> footer}}

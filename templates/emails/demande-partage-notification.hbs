@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr"><body style="font-family:Arial,sans-serif;color:#222">
+  <div style="max-width:640px;margin:auto">
+    {{#if logoUrl}}<div style="text-align:center;margin:16px 0"><img src="{{logoUrl}}" alt="{{siteName}}" style="max-height:60px"/></div>{{/if}}
+    <h2>Nouvelle demande de partage</h2>
+    <p>Bonjour {{institutName}},</p>
+    <p>Une nouvelle demande de partage a été soumise.</p>
+    <ul>
+      <li><strong>Code demande :</strong> {{demandeCode}}</li>
+      <li><strong>Demandeur :</strong> {{demandeurName}}</li>
+    </ul>
+    {{#if documents}}
+      <p><strong>Documents :</strong></p>
+      <ul>
+        {{#each documents}}
+          <li>{{this.name}} — {{this.codeAdn}}</li>
+        {{/each}}
+      </ul>
+    {{/if}}
+    <p>Connectez-vous à {{siteName}} pour la consulter.</p>
+    <hr/><p style="font-size:12px;color:#777">© {{siteName}} — <a href="{{siteUrl}}">{{siteUrl}}</a></p>
+  </div>
+</body></html>

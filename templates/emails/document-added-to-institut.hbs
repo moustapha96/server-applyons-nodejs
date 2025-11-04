@@ -1,0 +1,16 @@
+{{> header}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:24px;font:400 14px/1.8 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#111827">
+      <h3 style="margin:0 0 12px 0">Nouveau document reçu</h3>
+      <p>Bonjour {{escapeHtml institutName}},</p>
+      <ul style="padding-left:18px;margin:0">
+        <li><strong>Document :</strong> {{escapeHtml documentName}}</li>
+        <li><strong>Code ADN :</strong> {{escapeHtml documentCode}}</li>
+        <li><strong>Demande :</strong> {{escapeHtml demandeCode}}</li>
+        <li><strong>Ajouté le :</strong> {{escapeHtml dateAjout}}</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+{{> footer}}

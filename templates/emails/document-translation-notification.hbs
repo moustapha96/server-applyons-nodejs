@@ -1,0 +1,21 @@
+{{> header}}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:24px;font:400 14px/1.8 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial;color:#111827">
+      <h3 style="margin:0 0 12px 0">Nouveau document à traduire</h3>
+      <p>Bonjour {{escapeHtml institutTraducteurName}},</p>
+      <p>Un nouveau document vous a été attribué pour traduction. Voici les détails de la demande :</p>
+      <ul style="padding-left:18px;margin:0">
+        <li><strong>Type de document :</strong> {{escapeHtml documentType}}</li>
+        <li><strong>Mention :</strong> {{escapeHtml documentMention}}</li>
+        <li><strong>Date d'obtention :</strong> {{escapeHtml documentDateObtention}}</li>
+        <li><strong>Institut source :</strong> {{escapeHtml institutSourceName}}</li>
+        <li><strong>Demandeur :</strong> {{escapeHtml demandeurName}}</li>
+        <li><strong>Code de la demande :</strong> {{escapeHtml codeDemande}}</li>
+        <li><strong>Date de la demande :</strong> {{escapeHtml dateDemande}}</li>
+      </ul>
+      <p>Merci de procéder à la traduction dès que possible.</p>
+    </td>
+  </tr>
+</table>
+{{> footer}}

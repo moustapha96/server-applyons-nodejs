@@ -1,0 +1,35 @@
+// 1) Confirmation de contact à l’expéditeur
+await emailService.sendMailToUser(contact.email, {
+  templateName: "contact-confirmation",
+  subject: "Nous avons bien reçu votre message",
+  context: {
+    contactName: contact.name,
+    contactSubject: contact.subject,
+  },
+});
+
+// 2) Notification aux admins
+await emailService.sendMailToUser("support@applyons.org", {
+  templateName: "contact-to-admin",
+  subject: "Nouveau message via le formulaire de contact",
+  context: {
+    contactName: contact.name,
+    contactEmail: contact.email,
+    contactPhone: contact.phone,
+    contactSubject: contact.subject,
+    contactMessage: contact.message,
+  },
+  bcc: ["audit@applyons.org"],
+});
+
+// 3) Paiement réussi
+await emailService.sendMailToUser(user, {
+  templateName: "payment-success",
+  subject: "Paiement confirmé",
+  context: {
+    demandeurName: user.firstName,
+    montant: `${amount} ${currency}`,
+    dateTransaction: new Date().toLocaleString("fr-FR"),
+    typePaiement: provider,
+  },
+});
