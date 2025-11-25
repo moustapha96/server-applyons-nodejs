@@ -82,6 +82,11 @@ const shapeUser = (u) => ({
         name: u.organization.name,
         slug: u.organization.slug,
         type: u.organization.type,
+        address: u.organization.address,
+        phone: u.organization.phone,
+        country: u.organization.country,
+        website: u.organization.website,
+        email: u.organization.email
     } : null,
     permissions: u.permissions.map((p) => ({
         id: p.id,

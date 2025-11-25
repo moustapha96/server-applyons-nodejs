@@ -142,7 +142,8 @@ router.get(
 router.get(
     "/:id",
     requireAuth,
-    requirePermission("users.read"), [param("id").isString().trim()],
+    requirePermission("users.read"), [
+        param("id").isString().trim()],
     handleValidation,
     ctrl.getById
 );
