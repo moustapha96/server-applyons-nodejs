@@ -212,6 +212,11 @@ exports.create = async(req, res) => {
             await prisma.permission.findMany({
                 where: { key: { in: permissions } }
             }) : [];
+        
+        let avatar = null;
+        if (req.file) {
+            avatar = `/profiles/${req.file.filename}`
+        }
 
         const user = await prisma.user.create({
             data: {
@@ -226,6 +231,7 @@ exports.create = async(req, res) => {
                 adress: adress || null,
                 country: country || null,
                 gender,
+                avatar,
                 ...(organizationId ? { organization: { connect: { id: organizationId } } } : {}),
                 permissions: {
                     connect: permRecords.map(p => ({ id: p.id }))
@@ -262,7 +268,6 @@ exports.create = async(req, res) => {
 
 // ============ UPDATE USER ============
 exports.update = async(req, res) => {
-    console.log(req.body)
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -334,6 +339,12 @@ exports.update = async(req, res) => {
         if (firstName !== undefined) data.firstName = firstName || null;
         if (lastName !== undefined) data.lastName = lastName || null;
 
+        // Avatar upload (comme sur updateProfile)
+        if (req.file) {
+            data.avatar = `/profiles/${req.file.filename}`
+        }
+        console.log(data)
+        console.log(req.file)
         // —— Mise à jour des infos "profil" de base
         await prisma.user.update({ where: { id }, data });
 
