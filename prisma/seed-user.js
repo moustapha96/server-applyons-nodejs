@@ -2,57 +2,68 @@ const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const prisma = new PrismaClient();
 
+const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+const DEFAULT_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Password123!";
+
 async function main() {
   console.log("🌱 Starting seed...");
 
-  // --- 2) Permissions (idempotent via upsert par 'name')
+  // --- 1) Permissions (idempotent via upsert par 'key')
+  // Le schéma Prisma utilise 'key' comme unique, pas 'name'
   const permissionsData = [
-    { name: "GERER_ACTIVITES", description: "Gérer les activités" },
-    { name: "GERER_RESSOURCES", description: "Gérer les ressources" },
-    { name: "GERER_UTILISATEURS", description: "Gérer les utilisateurs" },
-    { name: "GERER_BUREAUX", description: "Gérer les bureaux" },
-    { name: "GERER_ACTUALITES", description: "Gérer les actualités" },
-    { name: "GERER_PARTENARIATS", description: "Gérer les partenariats" },
-    { name: "GERER_EVENEMENTS", description: "Gérer les événements" },
-    { name: "GERER_NEWSLETTERS", description: "Gérer les newsletters" },
-    { name: "GERER_ESPACE_APROPOS", description: "Gérer l'espace à propos" },
+    { key: "gerer.activites", name: "Gérer les activités", description: "Gérer les activités" },
+    { key: "gerer.ressources", name: "Gérer les ressources", description: "Gérer les ressources" },
+    { key: "gerer.utilisateurs", name: "Gérer les utilisateurs", description: "Gérer les utilisateurs" },
+    { key: "gerer.bureaux", name: "Gérer les bureaux", description: "Gérer les bureaux" },
+    { key: "gerer.actualites", name: "Gérer les actualités", description: "Gérer les actualités" },
+    { key: "gerer.partenariats", name: "Gérer les partenariats", description: "Gérer les partenariats" },
+    { key: "gerer.evenements", name: "Gérer les événements", description: "Gérer les événements" },
+    { key: "gerer.newsletters", name: "Gérer les newsletters", description: "Gérer les newsletters" },
+    { key: "gerer.espace.apropos", name: "Gérer l'espace à propos", description: "Gérer l'espace à propos" },
   ];
 
   const permissions = [];
   for (const p of permissionsData) {
     const perm = await prisma.permission.upsert({
-      where: { name: p.name },
-      update: { description: p.description },
-      create: p,
+      where: { key: p.key }, // Utiliser 'key' comme unique
+      update: { 
+        name: p.name,
+        description: p.description 
+      },
+      create: {
+        key: p.key,
+        name: p.name,
+        description: p.description,
+      },
     });
     permissions.push(perm);
   }
   console.log(`🔐 Permissions upserted: ${permissions.length}`);
 
-  // --- 3) Super Admin (idempotent via upsert par 'email')
+  // --- 2) Admin User (idempotent via upsert par 'email')
   console.log("\n👥 Creating/Updating users...");
-  const adminPassword = await bcrypt.hash(
-    process.env.SEED_ADMIN_PASSWORD || "Password123!",
-    12
-  );
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, BCRYPT_ROUNDS);
 
   const adminUser = await prisma.user.upsert({
-    where: { email: "superadmin@riafco.org" },
+    where: { email: "admin@applyons.com" },
     update: {
-      role: "SUPER_ADMIN",
-      status: "ACTIVE",
+      role: "ADMIN", // UserProfileType n'a pas SUPER_ADMIN, utiliser ADMIN
+      enabled: true, // Utiliser 'enabled' au lieu de 'status'
       firstName: "Super Admin",
-      lastName: "RIAFCO",
-      phone: "+33123456789",
+      lastName: "APPLYONS",
+      phone: "+221000000000",
+      username: "admin", // username est requis et unique
     },
     create: {
-      email: "superadmin@riafco.org",
-      password: adminPassword,
+      email: "admin@applyons.com",
+      username: "admin", // username est requis et unique
+      passwordHash, // Utiliser 'passwordHash' au lieu de 'password'
       firstName: "Super Admin",
-      lastName: "RIAFCO",
-      role: "SUPER_ADMIN",
-      status: "ACTIVE",
-      phone: "+33123456789",
+      lastName: "APPLYONS",
+      role: "ADMIN", // UserProfileType: ADMIN | SUPER_ADMIN | DEMANDEUR | INSTITUT | TRADUCTEUR | SUPERVISEUR
+      enabled: true, // Utiliser 'enabled' au lieu de 'status'
+      phone: "+221000000000",
+      gender: "MALE", // GenderType: MALE | FEMALE | OTHER
       permissions: {
         connect: permissions.map((p) => ({ id: p.id })),
       },
@@ -60,7 +71,7 @@ async function main() {
     include: { permissions: true },
   });
 
-  // S'assurer que le SUPER_ADMIN possède toutes les permissions
+  // S'assurer que l'ADMIN possède toutes les permissions
   await prisma.user.update({
     where: { id: adminUser.id },
     data: {
@@ -74,8 +85,9 @@ async function main() {
   console.log("✅ Seed completed successfully!");
   console.log(
     `Created/Updated:
-- SUPER_ADMIN: ${adminUser.email}
-- Total permissions: ${permissions.length}`
+- ADMIN: ${adminUser.email} (username: ${adminUser.username})
+- Total permissions: ${permissions.length}
+- Default password: ${DEFAULT_PASSWORD}`
   );
 }
 

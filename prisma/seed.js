@@ -7,7 +7,6 @@ const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
 const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD || 'Password123!';
 
 const hash = (pwd) => bcrypt.hash(pwd, BCRYPT_ROUNDS);
-const now = () => new Date();
 
 /* -------------------- Permissions socle -------------------- */
 const PERMISSIONS = [
@@ -116,7 +115,6 @@ async function upsertOrganizations() {
                 address: o.address,
                 website: o.website,
                 country: o.country,
-                updatedAt: now(),
             },
             create: {
                 name: o.name,
@@ -127,8 +125,6 @@ async function upsertOrganizations() {
                 address: o.address,
                 website: o.website,
                 country: o.country,
-                createdAt: now(),
-                updatedAt: now(),
             },
         });
         ids[o.slug] = org.id;
@@ -220,7 +216,6 @@ async function upsertUser(u, allPerms) {
             enabled: u.enabled,
             organizationId: u.organizationId,
             gender: u.gender,
-            updatedAt: now(),
         },
         create: {
             email: u.email,
@@ -230,8 +225,6 @@ async function upsertUser(u, allPerms) {
             passwordHash,
             organizationId: u.organizationId,
             gender: u.gender,
-            createdAt: now(),
-            updatedAt: now(),
         },
         include: { permissions: true },
     });
@@ -265,12 +258,8 @@ async function main() {
 }
 
 main()
-    .catch((e) => { <<
-        << << < HEAD
-        console.error('❌ Seed error:', e); ===
-        === =
-        console.error("❌ Seed failed:", e); >>>
-        >>> > 11638 a4e762238cb6e37ed9e80678871acdd4887
+    .catch((e) => {
+        console.error('❌ Seed error:', e);
         process.exit(1);
     })
     .finally(async() => {

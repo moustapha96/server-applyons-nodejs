@@ -10,6 +10,8 @@
         "db:seed": "node prisma/seed.js",
         "db:config": "node prisma/config.js",
         "db:refresh": "npm run db:reset && npm run db:seed",
+        "db:export": "node scripts/export-database.js",
+        "db:import": "node scripts/import-database.js",
         "db:generate": "npx prisma generate",
         "db:push": "npx prisma db push",
         "lint": "eslint .",
