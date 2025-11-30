@@ -24,9 +24,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# database exports/imports
-scripts/exports/*.json
-scripts/backups/*.json
-backups/*.json
-*.export.json
