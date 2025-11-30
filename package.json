@@ -10,6 +10,8 @@
         "db:seed": "node prisma/seed.js",
         "db:config": "node prisma/config.js",
         "db:refresh": "npm run db:reset && npm run db:seed",
+        "db:generate": "npx prisma generate",
+        "db:push": "npx prisma db push",
         "lint": "eslint .",
         "test": "vitest run --reporter=dot",
         "ci": "npm ci && npm run lint && npm run test"
