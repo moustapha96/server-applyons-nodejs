@@ -842,23 +842,46 @@ function normalizeEmails(v) {
 }
 
 module.exports.sendMailToUser = async(req, res) => {
+    const fs = require("fs").promises;
+    const path = require("path");
+    
     try {
         // 1. Extraction et validation des paramètres
-        const {
+        let {
             to,
             cc,
             bcc,
             replyTo,
             templateName,
-            context = {},
+            context: contextRaw = {},
             subject,
             html,
             text,
-            attachments,
+            attachments: attachmentsRaw,
             notifyAdmins = false,
             adminEmails,
             createAudit = true,
         } = req.body || {};
+
+        // Parser le context si c'est une string JSON
+        let context = contextRaw;
+        if (typeof contextRaw === 'string') {
+            try {
+                context = JSON.parse(contextRaw);
+            } catch (e) {
+                context = {};
+            }
+        }
+
+        // Parser les attachments si c'est une string JSON
+        let attachments = attachmentsRaw;
+        if (typeof attachmentsRaw === 'string') {
+            try {
+                attachments = JSON.parse(attachmentsRaw);
+            } catch (e) {
+                attachments = [];
+            }
+        }
 
         // Normalisation des emails
         const toList = normalizeEmails(to);
@@ -884,14 +907,123 @@ module.exports.sendMailToUser = async(req, res) => {
             return res.status(400).json({ message: "En mode template, 'subject' est requis." });
         }
 
-        // 2. Préparation des données pour l'email principal
+        // 2. Traitement des pièces jointes
+        const processedAttachments = [];
+
+        // 2.1. Fichiers uploadés via multer (req.files)
+        if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+            for (const file of req.files) {
+                try {
+                    const filePath = file.path;
+                    const fileContent = await fs.readFile(filePath);
+                    
+                    processedAttachments.push({
+                        filename: file.originalname || path.basename(file.filename),
+                        content: fileContent,
+                        contentType: file.mimetype || undefined,
+                        // Optionnel: supprimer le fichier après envoi
+                        // path: filePath, // pour nodemailer
+                    });
+                } catch (error) {
+                    console.error(`Erreur lecture fichier uploadé ${file.filename}:`, error.message);
+                }
+            }
+        }
+
+        // 2.2. Fichiers fournis dans le body (attachments)
+        if (Array.isArray(attachments) && attachments.length > 0) {
+            for (const att of attachments) {
+                try {
+                    // Format 1: Base64
+                    if (att.content && typeof att.content === 'string' && att.content.startsWith('data:')) {
+                        const matches = att.content.match(/^data:([^;]+);base64,(.+)$/);
+                        if (matches) {
+                            const contentType = matches[1];
+                            const base64Data = matches[2];
+                            processedAttachments.push({
+                                filename: att.filename || 'attachment',
+                                content: Buffer.from(base64Data, 'base64'),
+                                contentType: contentType,
+                            });
+                            continue;
+                        }
+                    }
+
+                    // Format 2: Base64 simple
+                    if (att.content && typeof att.content === 'string') {
+                        try {
+                            const buffer = Buffer.from(att.content, 'base64');
+                            processedAttachments.push({
+                                filename: att.filename || 'attachment',
+                                content: buffer,
+                                contentType: att.contentType || att.mimetype || 'application/octet-stream',
+                            });
+                            continue;
+                        } catch (e) {
+                            // Pas du base64 valide, continuer
+                        }
+                    }
+
+                    // Format 3: Path (fichier sur le serveur)
+                    if (att.path) {
+                        try {
+                            const filePath = path.isAbsolute(att.path) ? att.path : path.join(process.cwd(), att.path);
+                            const fileContent = await fs.readFile(filePath);
+                            processedAttachments.push({
+                                filename: att.filename || path.basename(att.path),
+                                content: fileContent,
+                                contentType: att.contentType || att.mimetype || undefined,
+                            });
+                            continue;
+                        } catch (error) {
+                            console.error(`Erreur lecture fichier ${att.path}:`, error.message);
+                        }
+                    }
+
+                    // Format 4: URL (télécharger depuis URL)
+                    if (att.url) {
+                        try {
+                            const axios = require('axios');
+                            const response = await axios.get(att.url, { responseType: 'arraybuffer' });
+                            processedAttachments.push({
+                                filename: att.filename || path.basename(new URL(att.url).pathname) || 'attachment',
+                                content: Buffer.from(response.data),
+                                contentType: att.contentType || response.headers['content-type'] || 'application/octet-stream',
+                            });
+                            continue;
+                        } catch (error) {
+                            console.error(`Erreur téléchargement ${att.url}:`, error.message);
+                        }
+                    }
+
+                    // Format 5: Buffer direct
+                    if (Buffer.isBuffer(att.content)) {
+                        processedAttachments.push({
+                            filename: att.filename || 'attachment',
+                            content: att.content,
+                            contentType: att.contentType || att.mimetype || 'application/octet-stream',
+                        });
+                        continue;
+                    }
+
+                    // Format 6: Objet nodemailer standard
+                    if (att.filename && (att.content || att.path)) {
+                        processedAttachments.push(att);
+                    }
+                } catch (error) {
+                    console.error('Erreur traitement pièce jointe:', error.message);
+                }
+            }
+        }
+
+        // 2.3. Préparation des données pour l'email principal
         const emailData = {
             to: toList,
             cc: ccList,
             bcc: bccList,
             replyTo: replyTo || undefined,
             subject: isTemplateMode ? subject : subject || "(Sans sujet)",
-            attachments: Array.isArray(attachments) ? attachments : undefined,
+            attachments: processedAttachments.length > 0 ? processedAttachments : undefined,
         };
 
         // 3. Envoi de l'email principal
@@ -968,13 +1100,26 @@ module.exports.sendMailToUser = async(req, res) => {
                     bcc: bccList.length ? "(hidden)" : undefined,
                     subject: emailData.subject,
                     template: isTemplateMode ? templateName : undefined,
+                    attachmentsCount: processedAttachments.length,
                 },
                 ipAddress: req.ip,
                 userAgent: req.get("User-Agent"),
             });
         }
 
-        // 5. Notification aux admins
+        // 5. Nettoyage des fichiers temporaires uploadés (optionnel)
+        if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+            // Optionnel: supprimer les fichiers après envoi
+            // for (const file of req.files) {
+            //     try {
+            //         await fs.unlink(file.path);
+            //     } catch (e) {
+            //         console.warn(`Impossible de supprimer ${file.path}:`, e.message);
+            //     }
+            // }
+        }
+
+        // 6. Notification aux admins
         const adminResults = [];
         if (notifyAdmins) {
             const siteSettings = await emailService.getSiteSettings().catch(() => null);
@@ -1011,7 +1156,7 @@ module.exports.sendMailToUser = async(req, res) => {
             }
         }
 
-        // 6. Réponse réussie
+        // 7. Réponse réussie
         return res.status(200).json({
             message: "Emails envoyés avec succès",
             results: [

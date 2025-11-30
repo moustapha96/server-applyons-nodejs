@@ -59,6 +59,73 @@ const upload = multer({
     },
 });
 
+/* -------------------------------------------
+ * Upload fichiers pour emails (pièces jointes)
+ * -----------------------------------------*/
+const emailAttachmentsDir = "uploads/email-attachments";
+if (!fs.existsSync(emailAttachmentsDir)) {
+    fs.mkdirSync(emailAttachmentsDir, { recursive: true });
+}
+
+const emailStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, emailAttachmentsDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        // Préserver le nom original avec un préfixe unique
+        const originalName = path.basename(file.originalname, path.extname(file.originalname));
+        const ext = path.extname(file.originalname);
+        cb(null, `email-attachment-${uniqueSuffix}-${originalName}${ext}`);
+    },
+});
+
+// Multer pour les pièces jointes d'email (plus permissif)
+const uploadEmailFiles = multer({
+    storage: emailStorage,
+    limits: { 
+        fileSize: 25 * 1024 * 1024, // 25MB par fichier
+        files: 10 // Maximum 10 fichiers
+    },
+    fileFilter: (req, file, cb) => {
+        // Accepter tous les types de fichiers courants
+        const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|jpg|jpeg|png|gif|bmp|svg|webp|mp4|mp3|avi|mov|wmv|flv/;
+        const extname = allowedTypes.test(
+            path.extname(file.originalname).toLowerCase()
+        );
+        if (extname) {
+            return cb(null, true);
+        } else {
+            // Accepter quand même si le type MIME est valide
+            const allowedMimes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'text/plain',
+                'text/csv',
+                'application/zip',
+                'application/x-rar-compressed',
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/bmp',
+                'image/svg+xml',
+                'image/webp',
+                'video/mp4',
+                'audio/mpeg',
+            ];
+            if (allowedMimes.includes(file.mimetype)) {
+                return cb(null, true);
+            }
+            cb(new Error(`Type de fichier non autorisé: ${file.mimetype}`));
+        }
+    },
+});
+
 
 /* -------------------------------------------
  * Validators
@@ -513,7 +580,78 @@ router.get(
     ctrl.search
 );
 
-router.post("/send-mail", ctrl.sendMailToUser);
+/**
+ * @swagger
+ * /api/users/send-mail:
+ *   post:
+ *     summary: Envoie un email avec support de pièces jointes
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               to:
+ *                 type: string
+ *                 description: Email(s) destinataire(s) (séparés par virgule ou tableau JSON)
+ *               cc:
+ *                 type: string
+ *                 description: Email(s) en copie
+ *               bcc:
+ *                 type: string
+ *                 description: Email(s) en copie cachée
+ *               replyTo:
+ *                 type: string
+ *                 description: Email de réponse
+ *               subject:
+ *                 type: string
+ *                 description: Sujet de l'email
+ *               templateName:
+ *                 type: string
+ *                 description: Nom du template (mode template)
+ *               html:
+ *                 type: string
+ *                 description: Contenu HTML (mode raw)
+ *               text:
+ *                 type: string
+ *                 description: Contenu texte (mode raw)
+ *               context:
+ *                 type: string
+ *                 description: Contexte JSON pour le template
+ *               attachments:
+ *                 type: string
+ *                 description: Pièces jointes JSON (base64, paths, ou URLs)
+ *               notifyAdmins:
+ *                 type: boolean
+ *                 description: Notifier les admins
+ *               adminEmails:
+ *                 type: string
+ *                 description: Emails admin (séparés par virgule)
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Fichiers uploadés (multipart)
+ *     responses:
+ *       200:
+ *         description: Email envoyé avec succès
+ *       400:
+ *         description: Erreurs de validation
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post(
+    "/send-mail",
+    requireAuth,
+    requirePermission("users.manage"),
+    uploadEmailFiles.array("files", 10), // Support jusqu'à 10 fichiers
+    ctrl.sendMailToUser
+);
 
 
 module.exports = router;

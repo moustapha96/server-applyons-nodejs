@@ -216,7 +216,7 @@ class EmailService {
         }
     }
 
-    async sendEmailCC({ to, cc, bcc, subject, html, text, attachments = [] }) {
+    async sendEmailCC({ to, cc, bcc, replyTo, subject, html, text, attachments = [] }) {
         try {
             const settings = await this.getSiteSettings();
             const mailOptions = {
@@ -224,14 +224,15 @@ class EmailService {
                 to,
                 cc,
                 bcc,
+                replyTo,
                 subject,
                 html,
                 text,
-                attachments,
+                attachments: Array.isArray(attachments) && attachments.length > 0 ? attachments : [],
             };
 
             const result = await this.transporter.sendMail(mailOptions);
-            console.log("✉️ Email sent:", result.messageId);
+            console.log("✉️ Email sent:", result.messageId, attachments.length > 0 ? `(${attachments.length} attachments)` : '');
             return result;
         } catch (error) {
             console.error("❌ Email failed:", error);
@@ -1029,7 +1030,7 @@ class EmailService {
                     templateName,
                     attachments: emailData.attachments, 
     */
-    async sendNotificationEmail({ to, cc = null, bcc = null, subject, context = {}, templateName = "generic-notification" }) {
+    async sendNotificationEmail({ to, cc = null, bcc = null, replyTo = null, subject, context = {}, templateName = "generic-notification", attachments = [] }) {
         const settings = await this.getSiteSettings();
         const siteName = "ApplyOns" || settings.siteName;
 
@@ -1046,9 +1047,11 @@ class EmailService {
             to,
             cc,
             bcc,
+            replyTo,
             subject: finalSubject,
             html,
             text,
+            attachments: Array.isArray(attachments) && attachments.length > 0 ? attachments : [],
         });
     }
 
@@ -1059,15 +1062,19 @@ class EmailService {
      * @param {string} message - Message principal.
      * @param {Array} attachments - Liste des pièces jointes ([{ filename, content, contentType }]).
      */
-    async sendEmailWithAttachments({ to, cc = null, bcc = null, subject, message, attachments }) {
+    async sendEmailWithAttachments({ to, cc = null, bcc = null, replyTo = null, subject, message, isHtml = false, attachments = [] }) {
         const settings = await this.getSiteSettings();
         const siteName = "ApplyOns" || settings.siteName;
 
-        const { subject: finalSubject, html, text } = await this.buildCommonEmail({
+        // Si isHtml est true, utiliser directement le message comme HTML
+        const html = isHtml ? message : escapeHtml(message).replace(/\n/g, "<br>");
+        const text = isHtml ? message.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') : message;
+
+        const { subject: finalSubject } = await this.buildCommonEmail({
             templateName: "email-with-attachments",
             subject: `${subject}`,
             context: {
-                message: escapeHtml(message).replace(/\n/g, "<br>"),
+                message: html,
                 siteName,
             },
         });
@@ -1076,10 +1083,11 @@ class EmailService {
             to,
             cc,
             bcc,
+            replyTo,
             subject: finalSubject,
             html,
             text,
-            attachments,
+            attachments: Array.isArray(attachments) && attachments.length > 0 ? attachments : [],
         });
     }
 
