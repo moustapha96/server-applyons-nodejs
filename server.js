@@ -23,7 +23,7 @@ app.use(cookieParser());
 // Configuration CORS
 app.use(
     cors({
-        origin: "http://localhost:3000",
+        origin: ["http://localhost:3000", "https://admin.applyons.com", "https://applyons.com"],
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
         credentials: true,
     })
