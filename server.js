@@ -15,24 +15,54 @@ const { checkUser, requireAuth } = require("./middleware/auth.middleware");
 app.set('trust proxy', 1); // ou 'loopback' si tu es en développement local
 
 // Middlewares de sécurité et parsing
-app.use(helmet());
+
+app.use(
+    helmet({
+      // 🔓 Autoriser l'utilisation des ressources (images, etc.) depuis d'autres origines
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      // ou tu peux totalement le désactiver :
+      // crossOriginResourcePolicy: false,
+    })
+  );
+
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://admin.applyons.com",
+    "https://applyons.com"
+  ];
+
 // Configuration CORS
+// app.use(
+//     cors({
+//         origin: ["http://localhost:3000", "https://admin.applyons.com", "https://applyons.com"],
+//         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+//         credentials: true,
+//     })
+// );
+
+
 app.use(
     cors({
-        origin: ["http://localhost:3000", "https://admin.applyons.com", "https://applyons.com"],
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-        credentials: true,
+      origin(origin, callback) {
+        // autoriser aussi les requêtes sans Origin (curl, etc.)
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error("Not allowed by CORS"));
+      },
+      credentials: true,
     })
-);
+  );
+
 
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5000, // limite chaque IP à 5000 requêtes par fenêtre
+    max: 50, // limite chaque IP à 5000 requêtes par fenêtre
     message: "Too many requests from this IP, please try again later.",
     trustProxy: true,
 });
