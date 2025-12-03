@@ -47,7 +47,7 @@ const ORGS = [{
         email: 'hq@applyons.com',
         phone: '+221000000001',
         address: 'HQ Street 1',
-        website: 'https://applyons.com',
+        website: 'https://admin.applyons.com',
         country: 'SN',
     },
     {

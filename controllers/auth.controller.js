@@ -77,6 +77,8 @@ const shapeUser = (u) => ({
     adress: u.adress,
     gender: u.gender,
     country: u.country,
+    dateOfBirth: u.dateOfBirth,
+    placeOfBirth: u.placeOfBirth,
     organization: u.organization ? {
         id: u.organization.id,
         name: u.organization.name,
@@ -373,7 +375,7 @@ exports.getProfile = async(req, res) => {
  */
 exports.updateProfile = async(req, res) => {
     try {
-        const { username, phone, adress, avatar, country, firstName, lastName } = req.body;
+        const { username, phone, adress, avatar, country, firstName, lastName, dateOfBirth, placeOfBirth } = req.body;
         const data = {};
 
         if (username !== undefined) data.username = username.trim();
@@ -382,9 +384,9 @@ exports.updateProfile = async(req, res) => {
         if (country !== undefined) data.country = country.trim() || null;
         if (firstName !== undefined) data.firstName = firstName.trim() || null;
         if (lastName !== undefined) data.lastName = lastName.trim() || null;
+        if (dateOfBirth !== undefined) data.dateOfBirth = dateOfBirth || null;
+        if (placeOfBirth !== undefined) data.placeOfBirth = placeOfBirth.trim() || null;
 
-        console.log(data)
-        console.log(req.file)
         if (req.file) {
             data.avatar = `/profiles/${req.file.filename}`
         }

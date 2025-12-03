@@ -11,7 +11,7 @@ const crypto = require("crypto");
    Configuration & Helpers
    =========================== */
 const DEFAULT_SITE_NAME = "ApplyOns";
-const DEFAULT_LOGO_URL = "https://applyons.com/logo.png";
+const DEFAULT_LOGO_URL = "https://admin.applyons.com/logo.png";
 const DEFAULT_FROM_EMAIL = "noreply@applyons.com";
 const DEFAULT_FROM_NAME = "ApplyOns Team";
 
@@ -187,7 +187,7 @@ class EmailService {
     async getSiteSettings() {
         return {
             siteName: process.env.SITE_NAME || DEFAULT_SITE_NAME,
-            siteUrl: process.env.FRONTEND_URL || "https://applyons.com",
+            siteUrl: process.env.FRONTEND_URL || "https://admin.applyons.com",
             logoUrl: process.env.LOGO_URL || DEFAULT_LOGO_URL,
             fromEmail: process.env.FROM_EMAIL || DEFAULT_FROM_EMAIL,
             fromName: process.env.FROM_NAME || DEFAULT_FROM_NAME,
@@ -249,8 +249,8 @@ class EmailService {
         const html = await this.templateEngine.render(templateName, {
             ...context,
             siteName: 'ApplyOns' || settings.siteName,
-            logoUrl: 'https://applyons.com/logo.png' || settings.logoUrl,
-            siteUrl: 'https://applyons.com' || settings.siteUrl,
+            logoUrl: 'https://admin.applyons.com/logo.png' || settings.logoUrl,
+            siteUrl: 'https://admin.applyons.com' || settings.siteUrl,
         });
 
         const text = this.buildTextVersion(subject, context);
@@ -459,7 +459,7 @@ class EmailService {
             // — Demande
             demandeCode: safe(demandePartage.code, null),
             // Lien vers la demande si tu as un front
-            viewUrl: `${"https://applyons.com"}/demandeur/mes-demandes/${demandePartage.id}/details`,
+            viewUrl: `${"https://admin.applyons.com"}/demandeur/mes-demandes/${demandePartage.id}/details`,
         };
 
         const { subject, html, text } = await this.buildCommonEmail({
@@ -875,7 +875,7 @@ class EmailService {
         // Normaliser pour les templates/partials qui attendent logoUrl & siteUrl
         const templateSafeSettings = {
             siteName: settings.siteName || "APPLYONS",
-            logoUrl: "https://applyons.com/logo.png" || settings.logo || settings.logoUrl || null,
+            logoUrl: "https://admin.applyons.com/logo.png" || settings.logo || settings.logoUrl || null,
             siteUrl: settings.urlSite || settings.siteUrl || null,
         };
 
@@ -931,7 +931,7 @@ class EmailService {
         const settings = await this.getSiteSettings(); // doit exister sur l'instance
         const siteName = "ApplyOns" || settings.siteName
 
-        const frontendBase = "https://applyons.com" || settings.frontendUrl;
+        const frontendBase = "https://admin.applyons.com" || settings.frontendUrl;
         const resetUrl = `${frontendBase}/auth/new-password?token=${encodeURIComponent(resetToken)}`;
 
         const subject = "Réinitialisation de votre mot de passe";
@@ -1097,7 +1097,7 @@ class EmailService {
     async sendResponseEmail({ to, subject, message, name = "Madame/Monsieur" }) {
         const siteSettings = await prisma.siteSettings.findFirst();
         const siteName = 'ApplyOns' || siteSettings.siteName;
-        const logoUrl = "https://applyons.com/logo.png" || toAbsoluteUrl(siteSettings.logo) || "http://localhost:3000/logo.png";
+        const logoUrl = "https://admin.applyons.com/logo.png" || toAbsoluteUrl(siteSettings.logo) || "http://localhost:3000/logo.png";
 
         const safeSubject = escapeHtml(subject || "Votre demande");
         const safeName = escapeHtml(name);
