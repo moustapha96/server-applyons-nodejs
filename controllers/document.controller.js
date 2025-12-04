@@ -118,6 +118,8 @@ exports.createDocumentPartage = async(req, res) => {
             include: {
                 demandePartage: {
                     select: {
+                        id: true,
+                        code: true,
                         user: { select: { id: true, email: true, firstName: true, lastName: true } },
                         assignedOrg: { select: { id: true, name: true, slug: true } },
                         targetOrg: { select: { id: true, name: true, slug: true, type: true } },
@@ -138,7 +140,7 @@ exports.createDocumentPartage = async(req, res) => {
                 const ownerOrg = doc.ownerOrg || org;
                 const demande = doc.demandePartage || null;
 
-                if (demandeur.email) {
+                if (demandeur && demandeur.email) {
                     await emailService.sendDocumentAddedNotificationToDemandeur(
                         doc, // documentPartage
                         ownerOrg, // organisation
@@ -226,6 +228,26 @@ exports.createDocumentPartage = async(req, res) => {
                     userAgent: req.get("User-Agent"),
                 });
             }
+        }
+
+        // Notification "in-app" pour le demandeur (ajout de document)
+        try {
+            const demande = doc.demandePartage;
+            const demandeur = demande?.user;
+            if (demandeur?.id) {
+                await prisma.notification.create({
+                    data: {
+                        userId: demandeur.id,
+                        demandePartageId,
+                        documentPartageId: doc.id,
+                        type: "DOC_ADDED",
+                        title: "Nouveau document ajouté",
+                        message: `Un nouveau document a été ajouté à votre demande ${demande.code || ""}.`,
+                    },
+                });
+            }
+        } catch (notifErr) {
+            console.error("NOTIFICATION_CREATE_ERROR (DOC_ADDED):", notifErr);
         }
 
         // Audit

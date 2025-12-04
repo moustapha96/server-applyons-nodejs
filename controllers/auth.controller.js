@@ -692,26 +692,50 @@ exports.verifyAccount = async(req, res) => {
 /**
  * Rafraîchit le token d'authentification
  */
+
 exports.refreshToken = async(req, res) => {
     try {
         const cookieToken = req.cookies[COOKIE_NAME];
         if (!cookieToken) {
             return res.status(401).json({
                 message: "Aucune session",
-                code: "NO_SESSION"
+                code: "NO_SESSION",
             });
         }
 
-        const decoded = jwt.verify(cookieToken, process.env.TOKEN_SECRET);
+        let decoded;
+        try {
+            decoded = jwt.verify(cookieToken, process.env.TOKEN_SECRET);
+        } catch (e) {
+            // Cas particulier : le JWT est expiré
+            if (e.name === "TokenExpiredError") {
+                clearAuthCookie(res);
+                console.warn("REFRESH_TOKEN_EXPIRED:", e.message);
+                return res.status(401).json({
+                    message: "Session expirée, veuillez vous reconnecter.",
+                    code: "TOKEN_EXPIRED",
+                });
+            }
+
+            // Autre erreur de vérification (signature invalide, etc.)
+            console.error("REFRESH_TOKEN_VERIFY_ERROR:", e);
+            clearAuthCookie(res);
+            return res.status(401).json({
+                message: "Session invalide",
+                code: "INVALID_SESSION",
+            });
+        }
+
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
             include: { permissions: true, organization: true },
         });
 
         if (!user || !user.enabled || user.deletedAt) {
+            clearAuthCookie(res);
             return res.status(403).json({
                 message: "Session invalide",
-                code: "INVALID_SESSION"
+                code: "INVALID_SESSION",
             });
         }
 
@@ -730,13 +754,14 @@ exports.refreshToken = async(req, res) => {
         res.status(200).json({
             message: "Token rafraîchi",
             token,
-            user: shapeUser(user)
+            user: shapeUser(user),
         });
     } catch (e) {
         console.error("REFRESH_TOKEN_ERROR:", e);
-        res.status(401).json({
-            message: "Session invalide",
-            code: "INVALID_SESSION"
+        clearAuthCookie(res);
+        res.status(500).json({
+            message: "Échec du rafraîchissement de session",
+            code: "REFRESH_TOKEN_ERROR",
         });
     }
 };

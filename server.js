@@ -61,7 +61,7 @@ app.use(
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 100000, // 15 minutes
+    windowMs: 150 * 60 * 100000, // 15 minutes
     max: 50, // limite chaque IP à 5000 requêtes par fenêtre
     message: "Too many requests from this IP, please try again later.",
     trustProxy: true,
@@ -103,6 +103,7 @@ app.use("/api/permissions", require("./routes/permission.routes"));
 app.use("/api/dashboard", require("./routes/dashboard.routes"));
 app.use("/api/contacts", require("./routes/contact.routes"));
 app.use("/api/settings", require("./routes/settings.routes"));
+app.use("/api/notifications", require("./routes/notification.routes"));
 
 
 // Gestion des erreurs 500

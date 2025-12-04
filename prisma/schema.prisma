@@ -519,3 +519,26 @@ model Payment {
   @@index([status])
 }
 
+/// =========================
+/// Notifications (ex: ajout/traduction de documents)
+/// =========================
+model Notification {
+  id                 String          @id @default(cuid())
+  userId             String
+  demandePartageId   String?
+  documentPartageId  String?
+  type               String          // ex: "DOC_ADDED", "DOC_TRANSLATED"
+  title              String
+  message            String
+  readAt             DateTime?
+  createdAt          DateTime        @default(now())
+
+  user               User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  demandePartage     DemandePartage? @relation(fields: [demandePartageId], references: [id])
+  documentPartage    DocumentPartage? @relation(fields: [documentPartageId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([demandePartageId])
+  @@index([documentPartageId])
+}
+
