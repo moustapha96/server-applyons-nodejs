@@ -988,7 +988,6 @@ exports.createPaypalOrder = async(req, res) => {
 };
 
 
-
 // POST /api/payments/paypal/capture
 // body: { demandeId, orderID }
 /* ===================== CAPTURE ORDER ===================== */

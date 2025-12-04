@@ -166,6 +166,55 @@ router.get(
 
 
 /**
+ * Routes spécifiques AVANT la route générique /:id
+ * pour éviter que Express ne matche "/get-price-demandeur" avec "/:id"
+ */
+
+// GET /api/payments/get-price-demandeur
+router.get(
+    "/get-price-demandeur",
+    requireAuth,
+    ctrl.getDemandePrice
+);
+
+// GET /api/payments/paypal/config
+router.get(
+    "/paypal/config",
+    requireAuth,
+    ctrl.getPaypalConfig
+);
+
+// GET /api/payments/stripe/publishable-key
+router.get(
+    "/stripe/publishable-key",
+    requireAuth,
+    ctrl.getStripeConfig
+);
+
+// GET /api/payments/demande/:demandeId
+router.get(
+    "/demande/:demandeId",
+    requireAuth,
+    // requirePermission("payments.read"),
+    ctrl.getForDemande
+);
+
+// GET /api/payments/:idOrg/get-price-institut
+router.get(
+    "/:idOrg/get-price-institut",
+    requireAuth,
+    ctrl.getAbonnementPriceForOrgType
+);
+
+// GET /api/payments/:demandeId/quote
+router.get(
+    "/:demandeId/quote",
+    requireAuth,
+    // requirePermission("payments.read"),
+    ctrl.getQuote
+);
+
+/**
  * @swagger
  * /api/payments/{id}:
  *   get:
@@ -380,23 +429,6 @@ router.patch(
 
 
 
-// Lecture statut paiement d’une demande
-router.get(
-    "/demande/:demandeId",
-    requireAuth,
-    // requirePermission("payments.read"),
-    ctrl.getForDemande
-);
-
-router.get(
-    "/:demandeId/quote",
-    requireAuth,
-    // requirePermission("payments.read"),
-    ctrl.getQuote
-);
-
-
-
 // STRIPE
 router.post(
     "/stripe/create-intent",
@@ -442,32 +474,6 @@ router.post(
     "/stripe/create-intent-demandeur",
     requireAuth,
     ctrl.createStripeIntentDemandeur
-);
-
-router.get(
-    "/:idOrg/get-price-institut",
-    requireAuth,
-    ctrl.getAbonnementPriceForOrgType
-);
-
-
-router.get(
-    "/get-price-demandeur",
-    requireAuth,
-    ctrl.getDemandePrice
-)
-
-router.get(
-    "/paypal/config",
-    requireAuth,
-    ctrl.getPaypalConfig
-);
-
-
-router.get(
-    "/stripe/publishable-key",
-    requireAuth,
-    ctrl.getStripeConfig
 );
 
 module.exports = router;
