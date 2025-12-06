@@ -7,33 +7,36 @@ const { param, query, body, validationResult } = require("express-validator");
 const multer = require("multer")
 const path = require("path")
 const fs = require("fs")
-
+const rateLimit = require("express-rate-limit");
+const secureStorage = require("../utils/secureStorage");
+const { validateUploadedFile, checkUploadQuota } = require("../middleware/fileValidation.middleware");
+const fileCleanup = require("../middleware/fileCleanup.middleware");
 
 const {
     requireAuth,
     requirePermission,
     // Optionnels si tu veux verrouiller plus finement :
     canDecrypt, // exiger la permission de déchiffrement
-    canVerifyIntegrity, // exiger la permission de vérification d’intégrité
-    checkDocumentAccess, // vérifie que l’utilisateur a le droit d’accéder au doc
+    canVerifyIntegrity, // exiger la permission de vérification d'intégrité
+    checkDocumentAccess, // vérifie que l'utilisateur a le droit d'accéder au doc
     requireEncryptedDocument, // vérifie que le doc est chiffré (depuis ton middleware)
 } = require("../middleware/auth.middleware");
 
-
-
-
-const uploadDir = "uploads/documents";
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+// Configuration du stockage sécurisé avec multer
+const tempDir = path.join(process.cwd(), "temp", "uploads");
+if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadDir);
+        // Stocker temporairement dans temp/uploads
+        cb(null, tempDir);
     },
     filename: (req, file, cb) => {
+        // Nom temporaire, sera renommé par secureStorage
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, "document-" + uniqueSuffix + path.extname(file.originalname));
+        cb(null, "temp-" + uniqueSuffix + path.extname(file.originalname));
     },
 });
 
@@ -41,6 +44,7 @@ const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     fileFilter: (req, file, cb) => {
+        // Validation basique de l'extension (validation complète dans le middleware)
         const allowedTypes = /pdf/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         if (extname) {
@@ -49,6 +53,25 @@ const upload = multer({
             cb(new Error("File type not allowed"));
         }
     },
+});
+
+// Rate limiting spécifique pour les uploads
+const uploadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // 10 uploads par fenêtre
+    message: {
+        success: false,
+        message: "Trop de fichiers uploadés, veuillez réessayer plus tard",
+        code: "RATE_LIMIT_EXCEEDED"
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Supprimer keyGenerator personnalisé pour éviter les problèmes IPv6
+    // Le rate limiting utilisera par défaut req.ip avec gestion IPv6 automatique
+    skip: (req) => {
+        // Ne pas limiter les admins
+        return req.user?.role === "ADMIN" || req.user?.role === "SUPER_ADMIN";
+    }
 });
 
 
@@ -219,8 +242,12 @@ router.get(
 router.post(
     "/",
     requireAuth,
-    upload.single("file"),
     requirePermission("documents.create"),
+    uploadLimiter,
+    checkUploadQuota,
+    upload.single("file"),
+    fileCleanup,
+    validateUploadedFile,
     ctrl.createDocumentPartage
 );
 
@@ -347,7 +374,10 @@ router.post(
     "/:id/traduire-upload",
     requireAuth,
     requirePermission("documents.translate"),
+    uploadLimiter,
     upload.single("file"),
+    fileCleanup,
+    validateUploadedFile,
     ctrl.traduireUpload
 );
 
@@ -493,5 +523,145 @@ router.get(
     ctrl.verifyIntegrity
 );
 
+/**
+ * Route protégée pour servir les fichiers uploadés
+ * Remplace le serveur statique pour les documents
+ */
+router.get(
+    /^\/file\/(.+)$/,
+    requireAuth,
+    requirePermission("documents.read"),
+    async (req, res) => {
+        try {
+            const { PrismaClient } = require("@prisma/client");
+            const prisma = new PrismaClient();
+            const path = require("path");
+            const fs = require("fs");
+            const secureStorage = require("../utils/secureStorage");
+
+            // Extraire le chemin depuis l'URL (tout après /file/)
+            const urlMatch = req.originalUrl.match(/\/file\/(.+)$/);
+            if (!urlMatch || !urlMatch[1]) {
+                await prisma.$disconnect();
+                return res.status(400).json({
+                    success: false,
+                    message: "Chemin de fichier manquant",
+                    code: "MISSING_PATH"
+                });
+            }
+            
+            // Décoder le chemin
+            const filePath = decodeURIComponent(urlMatch[1]);
+            
+            // Vérifier que le chemin est sécurisé (prévention path traversal)
+            const baseDir = path.resolve(process.cwd(), "uploads");
+            const fullPath = path.resolve(baseDir, filePath);
+            
+            if (!secureStorage.isPathSafe(fullPath, baseDir)) {
+                await prisma.$disconnect();
+                return res.status(403).json({
+                    success: false,
+                    message: "Accès refusé",
+                    code: "ACCESS_DENIED"
+                });
+            }
+
+            // Vérifier que le fichier existe
+            if (!fs.existsSync(fullPath)) {
+                await prisma.$disconnect();
+                return res.status(404).json({
+                    success: false,
+                    message: "Fichier introuvable",
+                    code: "FILE_NOT_FOUND"
+                });
+            }
+
+            // Trouver le document associé à ce fichier
+            const document = await prisma.documentPartage.findFirst({
+                where: {
+                    OR: [
+                        { urlOriginal: { contains: filePath } },
+                        { urlChiffre: { contains: filePath } },
+                        { urlTraduit: { contains: filePath } }
+                    ]
+                },
+                include: {
+                    demandePartage: {
+                        include: {
+                            user: true,
+                            targetOrg: true,
+                            assignedOrg: true
+                        }
+                    },
+                    ownerOrg: true
+                }
+            });
+
+            if (!document) {
+                await prisma.$disconnect();
+                return res.status(404).json({
+                    success: false,
+                    message: "Document introuvable",
+                    code: "DOCUMENT_NOT_FOUND"
+                });
+            }
+
+            // Vérifier les permissions d'accès
+            const user = res.locals.user;
+            const hasAccess =
+                document.demandePartage.userId === user.id ||
+                user.organizationId === document.demandePartage.targetOrgId ||
+                user.organizationId === document.demandePartage.assignedOrgId ||
+                user.organizationId === document.ownerOrgId ||
+                user.permissionKeys?.includes("documents.read") ||
+                user.permissionKeys?.includes("documents.manage") ||
+                user.role === "ADMIN";
+
+            if (!hasAccess) {
+                await prisma.$disconnect();
+                return res.status(403).json({
+                    success: false,
+                    message: "Accès refusé - permissions insuffisantes",
+                    code: "ACCESS_DENIED"
+                });
+            }
+
+            // Servir le fichier
+            const stats = fs.statSync(fullPath);
+            const filename = document.codeAdn 
+                ? `${document.codeAdn}.pdf` 
+                : `document-${document.id}.pdf`;
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Length', stats.size);
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            res.setHeader('Cache-Control', 'private, max-age=3600');
+
+            const fileStream = fs.createReadStream(fullPath);
+            fileStream.pipe(res);
+
+            // Log de l'accès
+            const { createAuditLog } = require("../utils/audit");
+            await createAuditLog({
+                userId: user.id,
+                action: "DOCUMENT_FILE_ACCESSED",
+                resource: "documents",
+                resourceId: document.id,
+                details: { filePath, filename },
+                ipAddress: req.ip,
+                userAgent: req.get("User-Agent"),
+            });
+
+            await prisma.$disconnect();
+        } catch (error) {
+            console.error("Erreur serveur fichier:", error);
+            res.status(500).json({
+                success: false,
+                message: "Erreur lors de la récupération du fichier",
+                code: "SERVER_ERROR"
+            });
+        }
+    }
+);
 
 module.exports = router;

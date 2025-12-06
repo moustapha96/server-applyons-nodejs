@@ -37,6 +37,7 @@
         "jsonwebtoken": "latest",
         "module-alias": "^2.2.3",
         "multer": "latest",
+        "node-cron": "^3.0.3",
         "nodemailer": "^7.0.6",
         "slugify": "^1.6.6",
         "stripe": "^19.1.0",

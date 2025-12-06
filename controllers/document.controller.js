@@ -66,9 +66,8 @@ exports.createDocumentPartage = async(req, res) => {
             return res.status(400).json({ message: "ownerOrgId requis", code: "MISSING_OWNER_ORG_ID" });
         }
 
-        // Fichier (Multer: upload.single('file'))
-        let file = req.file;
-        if (!file && req.files && req.files.file && req.files.file[0]) file = req.files.file[0];
+        // Fichier validé par le middleware
+        const file = req.validatedFile || req.file;
         if (!file) {
             return res.status(400).json({ success: false, message: "No file uploaded", code: "FILE_REQUIRED" });
         }
@@ -78,6 +77,10 @@ exports.createDocumentPartage = async(req, res) => {
             demandeCode,
         });
         if (!demandePartageId) {
+            // Nettoyer le fichier temporaire
+            if (file.path) {
+                try { fs.unlinkSync(file.path); } catch (e) {}
+            }
             return res.status(400).json({
                 message: "demandePartageId introuvable (fournis demandePartageId ou demandeId ou demandeCode)",
                 code: "MISSING_DEMANDE_PARTAGE",
@@ -90,19 +93,45 @@ exports.createDocumentPartage = async(req, res) => {
             prisma.organization.findUnique({ where: { id: ownerOrgId } }),
         ]);
         if (!demandePartage) {
+            // Nettoyer le fichier temporaire
+            if (file.path) {
+                try { fs.unlinkSync(file.path); } catch (e) {}
+            }
             return res.status(404).json({ message: "DemandePartage introuvable", code: "DEMANDE_PARTAGE_NOT_FOUND" });
         }
         if (!org) {
+            // Nettoyer le fichier temporaire
+            if (file.path) {
+                try { fs.unlinkSync(file.path); } catch (e) {}
+            }
             return res.status(404).json({ message: "Organisation introuvable", code: "ORG_NOT_FOUND" });
         }
 
-        // urlOriginal publique depuis le path du fichier
+        // Stocker le fichier de manière sécurisée
+        const secureStorage = require("../utils/secureStorage");
+        let storedFile;
+        try {
+            storedFile = await secureStorage.storeFile(
+                file.path,
+                'document',
+                file.originalname
+            );
+        } catch (storageError) {
+            console.error("Erreur stockage fichier:", storageError);
+            // Nettoyer le fichier temporaire
+            if (file.path) {
+                try { fs.unlinkSync(file.path); } catch (e) {}
+            }
+            return res.status(500).json({
+                success: false,
+                message: "Erreur lors du stockage du fichier",
+                code: "STORAGE_ERROR"
+            });
+        }
+
+        // Construire l'URL protégée
         const base = publicBase(req);
-        const rel = file.path.replace(/\\/g, "/").replace(/^\/?/, "/");
-        const urlOriginal = `${base}${rel}`;
-        console.log("urlOriginal", urlOriginal);
-        console.log(base)
-        console.log(rel)
+        const urlOriginal = `${base}/api/documents/file/${storedFile.relativePath}`;
             // Création du document
         const doc = await prisma.documentPartage.create({
             data: {
@@ -1216,20 +1245,40 @@ async function handleEncryptedDocument(fileUrl, encryptionKey, encryptionIV, blo
 }
 
 /**
- * Récupère un flux de fichier depuis le stockage (à implémenter selon votre système)
+ * Récupère un flux de fichier depuis le stockage sécurisé
  */
 async function getFileStreamFromStorage(url) {
     if (url.startsWith('http')) {
-        // Fichier accessible via URL
+        // Fichier accessible via URL (ancien système ou externe)
         const response = await axios({
             method: 'GET',
             url,
             responseType: 'stream'
         });
         return response.data;
+    } else if (url.includes('/api/documents/file/')) {
+        // Nouveau système : extraire le chemin relatif
+        const relativePath = url.split('/api/documents/file/')[1];
+        const secureStorage = require("../utils/secureStorage");
+        const baseDir = path.join(process.cwd(), 'uploads');
+        const filePath = path.resolve(baseDir, relativePath);
+        
+        // Vérifier la sécurité du chemin
+        if (!secureStorage.isPathSafe(filePath, baseDir)) {
+            throw new Error('Chemin de fichier non autorisé');
+        }
+        
+        if (!fs.existsSync(filePath)) {
+            throw new Error('Fichier introuvable');
+        }
+        
+        return fs.createReadStream(filePath);
     } else {
-        // Fichier local
+        // Fichier local (ancien format)
         const filePath = path.join(__dirname, '../../', url.replace(/^\/+/, ''));
+        if (!fs.existsSync(filePath)) {
+            throw new Error('Fichier introuvable');
+        }
         return fs.createReadStream(filePath);
     }
 }
@@ -1370,11 +1419,8 @@ exports.traduireUpload = async(req, res) => {
             });
         }
 
-        // 2. Vérification du fichier de traduction
-        let file = req.file;
-        if (!file && req.files.file[0]) {
-            file = req.files.file[0];
-        }
+        // 2. Vérification du fichier de traduction (validé par le middleware)
+        const file = req.validatedFile || req.file;
         if (!file) {
             return res.status(400).json({
                 message: "Fichier de traduction requis",
@@ -1382,10 +1428,31 @@ exports.traduireUpload = async(req, res) => {
             });
         }
 
-        // 3. Construction de l'URL publique du fichier traduit
+        // 3. Stocker le fichier de manière sécurisée
+        const secureStorage = require("../utils/secureStorage");
+        let storedFile;
+        try {
+            storedFile = await secureStorage.storeFile(
+                file.path,
+                'document',
+                file.originalname || `traduction-${id}.pdf`
+            );
+        } catch (storageError) {
+            console.error("Erreur stockage fichier traduction:", storageError);
+            // Nettoyer le fichier temporaire
+            if (file.path) {
+                try { fs.unlinkSync(file.path); } catch (e) {}
+            }
+            return res.status(500).json({
+                success: false,
+                message: "Erreur lors du stockage du fichier de traduction",
+                code: "STORAGE_ERROR"
+            });
+        }
+
+        // 4. Construction de l'URL protégée du fichier traduit
         const base = publicBase(req);
-        const rel = file.path.replace(/\\/g, "/").replace(/^\/?/, "/");
-        const urlTraduit = `${base}${rel}`;
+        const urlTraduit = `${base}/api/documents/file/${storedFile.relativePath}`;
 
         // 4. Chiffrement du document traduit
         let translatedCrypto;

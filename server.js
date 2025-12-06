@@ -71,11 +71,13 @@ app.use("/api/", limiter);
 // Middleware global pour vérifier l'utilisateur
 app.use(checkUser);
 
-// Routes statiques
+// Routes statiques (profiles et settings restent publics, documents sont protégés)
 app.use(express.static(path.join(__dirname, "uploads")));
 app.use("/profiles", express.static(path.join(__dirname, "uploads")));
-app.use("/documents", express.static(path.join(__dirname, "uploads")));
+// Documents ne sont plus servis statiquement - utilisation de la route protégée /api/documents/file/:path
+// app.use("/documents", express.static(path.join(__dirname, "uploads"))); // DÉSACTIVÉ pour sécurité
 app.use("/settings", express.static(path.join(__dirname, "uploads")));
+// Uploads généraux (pour compatibilité, mais documents sont protégés)
 app.use("/uploads", express.static("uploads"));
 
 // Documentation Swagger
@@ -125,8 +127,14 @@ app.use((req, res) => {
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 5000;
+
+// Démarrer le planificateur de nettoyage automatique
+const { startCleanupScheduler } = require('./utils/fileCleanupScheduler');
+startCleanupScheduler();
+
 app.listen(PORT, () => {
     console.log(`🚀 Applyons Backoffice API listening on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`🔗 Api doc: http://localhost:${PORT}/api-docs`);
+    console.log(`🔒 Système de sécurité des fichiers activé`);
 });
